@@ -29,7 +29,11 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:1.05fr 2.3fr 1.05fr;
 .ptitle{font-size:15px;font-weight:700;margin-bottom:8px}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px}
 .ph select,.ph button{min-height:38px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:0 10px;font-family:inherit;max-width:62%}
-.ph button{color:var(--blue)}.ph button:active{filter:brightness(.92)}
+.grp{display:flex;gap:6px;min-width:0;flex:1;justify-content:flex-end}
+.grp select{flex:1;min-width:0;max-width:none}
+#del{max-width:none;padding:0 11px;color:#e03131}
+#del[hidden]{display:none}
+#gen{color:var(--blue)}.ph button:active{filter:brightness(.92)}
 .list{position:relative;flex:1;overscroll-behavior:contain;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--card);border:1px solid var(--line);border-radius:14px}
 .row{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:15px;padding:11px 12px;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row i{font-style:normal;color:var(--muted);margin-right:12px;font-variant-numeric:tabular-nums}
@@ -75,7 +79,7 @@ dialog button{min-height:46px;border-radius:10px;border:1px solid var(--line);ba
     <div class="tools"><button id="bk">备份 / 恢复</button></div>
   </header>
   <main>
-    <section class="panel"><div class="ptitle ph"><span>单词列表</span><select id="sel"></select></div><div class="list" id="lw"></div></section>
+    <section class="panel"><div class="ptitle ph"><span>单词列表</span><span class="grp"><select id="sel"></select><button id="del" aria-label="删除当前列表">🗑</button></span></div><div class="list" id="lw"></div></section>
     <section class="panel study">
       <div class="ptitle">学习区</div>
       <div id="stage">
@@ -153,9 +157,11 @@ function buildWordList(){
   lwCur=null; lw.scrollTop=0;
 }
 function refreshMarks(){ for(let i=0;i<lwRows.length;i++) lwRows[i].classList.toggle('mk',has(words[i][0])); }
+function updateDel(){ $('#del').hidden = store.active===BASE; }
 function buildSelect(){
   const names=[BASE,...store.lists.map(l=>l.name).reverse()];
   sel.innerHTML=names.map(n=>`<option value="${esc(n)}"${n===store.active?' selected':''}>${esc(n)}</option>`).join('');
+  updateDel();
 }
 function buildVocabList(){
   vset = new Set(store.vocab.map(x=>lc(x.word)));
@@ -255,8 +261,18 @@ function switchList(name){
   if(name===store.active) return;
   flush(); store.active=name; words=getWords(name);
   mode='list'; index=Math.min(getProg(),words.length); revealed=false;
-  buildWordList(); save(); render(true);
+  buildWordList(); updateDel(); save(); render(true);
 }
+function deleteList(){
+  const name=store.active; if(name===BASE) return;
+  const l=store.lists.find(x=>x.name===name);
+  if(!confirm('删除列表「'+name+'」（共 '+l.words.length+' 个词）？删除后无法恢复，建议先导出备份。')) return;
+  store.lists=store.lists.filter(x=>x.name!==name); delete store.progress[name];
+  store.active=BASE; words=baseWords; mode='list'; index=Math.min(getProg(),words.length); revealed=false;
+  buildWordList(); buildSelect(); save(); flush(); render(true);
+  toast('已删除「'+name+'」');
+}
+$('#del').addEventListener('click',deleteList);
 $('#gen').addEventListener('click',createList);
 sel.addEventListener('change',()=>switchList(sel.value));
 
